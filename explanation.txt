@@ -1,0 +1,1326 @@
+How I Made This Project — Session Notes
+
+
+Library	Purpose
+NumPy	Numerical arrays/tensors
+Pandas	Working with structured/tabular data
+Matplotlib	Visualizing images/results
+OpenCV	Computer vision + video processing
+Pillow	Reading/manipulating images
+lxml	Reading XML annotations
+
+Session Note — Day 1
+
+What we did:
+
+Validated the RDD2022 India pothole dataset.
+Checked that 1,530 images have 1,530 XML annotations.
+Read a Pascal VOC XML annotation.
+Understood bounding-box coordinates.
+Visualized a pothole bounding box.
+
+What we learned:
+
+Object detection: identifies both what an object is and where it is.
+Pascal VOC XML: stores image information and bounding-box coordinates.
+Bounding box: (xmin, ymin, xmax, ymax).
+YOLO format: class_id x_center y_center width height.
+Normalization: converts pixel coordinates into values between 0 and 1.
+
+Libraries
+
+pathlib → handles file/folder paths.
+Pillow → opens images and draws bounding boxes.
+xml.etree.ElementTree → reads XML annotations.
+OpenCV → we'll use later for computer vision and live video.
+
+Why we use them:
+
+We'll always record the purpose, alternatives, and reason for our choice.
+
+Important project decision:
+
+Dataset: RDD2022 India Pothole D40.
+Current target: real-time pothole detection.
+Final goal: camera → detection → warning → GPS location.
+
+I'll maintain the same style throughout the project.
+
+At the end, we'll combine all these notes into a single:
+
+Road Damage Detection — Technical & Research Documentation
+
+Our program does:
+Find XML file
+      ↓
+Read XML
+      ↓
+Get image width & height
+      ↓
+Find every object
+      ↓
+Read class name
+      ↓
+Read xmin, ymin, xmax, ymax
+      ↓
+Calculate center
+      ↓
+Calculate width & height
+      ↓
+Normalize
+      ↓
+Convert class name → class ID
+      ↓
+Write .txt file
+
+Found damage objects across the XML annotations:
+| Class     |   Objects |
+| --------- | --------: |
+| D00       |       471 |
+| D01       |        27 |
+| D10       |        23 |
+| D11       |         7 |
+| D20       |       645 |
+| D40       |     3,187 |
+| D43       |         5 |
+| D44       |       151 |
+| D50       |         8 |
+| **Total** | **4,524** |
+
+For YOLO, we need our own mapping:
+D00 → 0
+D01 → 1
+D10 → 2
+D11 → 3
+D20 → 4
+D40 → 5
+D43 → 6
+D44 → 7
+D50 → 8
+
+There is one important issue we should understand first: some classes have extremely few examples:
+
+D11 = 7
+D43 = 5
+D50 = 8
+
+A model cannot learn a class very reliably from only a handful of objects. This is an important dataset/class-imbalance problem, and it's something you'll want to understand for your research documentation.
+
+Session Note — add this to your TXT later
+
+What we did::
+We inspected all XML annotations instead of assuming there was only one damage class.
+
+Result:
+The dataset contains 9 damage classes and 4,524 annotated objects.
+
+Why this matters:
+Before converting annotations to YOLO format, we need to know every class so that each class can receive a unique YOLO class_id.
+
+Important observation:
+The dataset is imbalanced. D40 has 3,187 objects, while D11, D43, and D50 have fewer than 10 objects each. This may affect model learning and evaluation later.
+
+New concept::
+class name and class ID are different. For example, D40 is the dataset's class label, while YOLO needs a numerical ID such as 5.
+
+Session Note — Today's Progress
+
+What we did:
+
+Confirmed our class mapping for all 9 damage classes.
+Created convert_voc_to_yolo.py.
+Learned how to locate XML annotation files.
+Successfully parsed an XML file.
+Extracted the image filename and image dimensions.
+Started extracting the annotated object's class and bounding-box coordinates.
+
+Technologies / libraries:
+
+pathlib → handles file and folder paths. We use it because it makes dataset file handling cleaner.
+xml.etree.ElementTree → reads Pascal VOC XML files. We use it because our annotations are stored as XML and Python already provides this library.
+
+Important concept:s learned
+
+XML stores values such as width and coordinates as text, so we use int() to convert them into numbers.
+xmin, ymin, xmax, ymax describe the four sides of a bounding box.
+The converter will transform these coordinates into YOLO's:
+class_id, x_center, y_center, width, height.
+
+Important decision:
+
+We are currently keeping all 9 damage classes rather than removing rare classes immediately.
+We will later evaluate whether class imbalance affects the model.
+
+Current pipeline
+
+Pascal VOC XML
+      ↓
+Read image information
+      ↓
+Read class + bounding box
+      ↓
+Calculate YOLO coordinates
+      ↓
+Normalize
+      ↓
+Create YOLO TXT
+
+Session Note — Annotation Conversion
+
+Work completed::
+The The Pascal VOC XML annotation was converted conceptually into the YOLO annotation format. A class mapping was created for the nine road-damage categories. Bounding-box coordinates (xmin, ymin, xmax, ymax) were transformed into YOLO's (x_center, y_center, width, height) representation and normalized using the image dimensions.
+
+YOLO annotation structure:
+
+class_id x_center y_center width height
+
+For India_000005.jpg, the pothole (D40) is represented as:
+
+5 0.269444 0.728472 0.483333 0.143056
+
+Preprocessing approach:
+The project uses a custom Python conversion process rather than relying on an external annotation-conversion tool. This gives us direct control over class mapping, coordinate transformation, normalization, and validation.
+
+Libraries / technologies::
+
+Python pathlib — manages dataset paths and generates corresponding .txt filenames.
+Python xml.etree.ElementTree — parses Pascal VOC XML annotations.
+YOLO annotation format — represents each object using a numerical class ID and normalized bounding-box coordinates.
+
+Research relevance::
+Annotation conversion is a necessary preprocessing stage because the original dataset uses Pascal VOC XML while the planned YOLO detection pipeline expects YOLO-format text labels. Maintaining a consistent class mapping and correctly normalizing bounding boxes is essential for training and evaluating the object-detection model.
+
+Current limitation identified::
+The current implementation writes annotations inside the object loop using write mode ("w"). Images containing multiple annotated objects could therefore lose previously written labels. This will be corrected before converting the complete dataset.
+
+Next: step:
+Modify the converter so that all objects belonging to one image are written to the same YOLO .txt file.
+
+SSession Note — Research Documentation
+
+Topic: Pascal VOC → YOLO annotation conversion
+
+What we accomplished::
+We developed a custom annotation conversion pipeline that reads Pascal VOC XML annotations and converts their bounding boxes into YOLO format.
+
+Input:
+
+XML
+class + xmin + ymin + xmax + ymax
+
+Output:
+
+TXT
+class_id + x_center + y_center + width + height
+
+All bounding-box values except the class ID are normalized to the range [0, 1].
+
+Class mapping:
+
+D00 → 0
+D01 → 1
+D10 → 2
+D11 → 3
+D20 → 4
+D40 → 5
+D43 → 6
+D44 → 7
+D50 → 8
+
+Why conversion is necessary::
+The original dataset annotations use Pascal VOC XML, while our planned YOLO object-detection pipeline expects one text annotation file per image using normalized bounding-box coordinates.
+
+Implementation:
+A Python preprocessing script was created using pathlib for file management and xml.etree.ElementTree for XML parsing.
+
+Data integrity checks added:
+
+Unknown class detection
+Missing bounding-box detection
+Invalid bounding-box dimension detection
+Normalized-coordinate validation
+Exception handling for problematic XML files
+Conversion statistics (converted and skipped)
+
+Important programming concept:
+For images containing multiple objects, annotations are first stored in a list and then written together to one .txt file. This prevents later objects from overwriting earlier annotations.
+
+Research significance::
+This preprocessing stage establishes a reproducible transformation from the dataset's original annotation format to the format required by the object-detection model. Validation is included so that annotation errors can be identified before model training.
+
+Next::
+
+Validate the generated YOLO annotations against the original bounding boxes before training the model.
+
+SSession Note — Research Documentation
+
+Topic: Dataset-wide annotation conversion and validation
+
+Completed::
+All 1,530 Pascal VOC XML annotation files were successfully converted into YOLO text annotations.
+
+XML files:       1530
+Converted:       1530
+Skipped:            0
+
+This confirms that the conversion pipeline processed the complete training annotation set without encountering conversion failures.
+
+Example conversion:
+
+Original annotation:
+
+D40
+xmin = 20
+ymin = 473
+xmax = 368
+ymax = 576
+
+YOLO annotation:
+
+5 0.269444 0.728472 0.483333 0.143056
+
+Here:
+
+5 = D40/Pothole class ID
+0.269444 = normalized center X
+0.728472 = normalized center Y
+0.483333 = normalized bounding-box width
+0.143056 = normalized bounding-box height
+
+Validation principle learned:
+Successful code execution does not guarantee correct output. Dataset preprocessing must be validated independently.
+
+Validation method:
+The generated YOLO coordinates are converted back from normalized values to pixel coordinates and visualized on the original image. The resulting bounding box should match the original Pascal VOC annotation.
+
+Research significance::
+This provides a practical verification of the annotation-format transformation before model training. It reduces the risk of training the detector using incorrectly transformed bounding boxes.
+
+Libraries used::
+
+pathlib → dataset and output path handling
+Pillow → image loading and bounding-box visualization
+
+Current project pipeline:
+
+RDD dataset
+    ↓
+Pascal VOC XML
+    ↓
+Custom Python conversion
+    ↓
+YOLO TXT labels
+    ↓
+Visual validation
+    ↓
+YOLO training preparation
+
+SSession Note — Research Documentation
+
+Topic: Dataset validation and preparation for model training
+
+Completed::
+The converted YOLO annotation was visually compared with the original annotation. The bounding box appeared in the same location, so the XML → YOLO conversion passed visual validation.
+
+New concept::
+A successful preprocessing script is not enough to establish correctness. We validate both:
+
+Coordinate correctness — the converted bounding box remains around the correct object.
+File correspondence — each image has the correct corresponding YOLO label file.
+
+Why train/validation separation is needed::
+The training set is used to learn model parameters, while the validation set is used to evaluate performance on images that were not used directly for learning. This helps identify overfitting and provides a more meaningful estimate of model performance.
+
+Planned YOLO structure:
+
+dataset/
+├── images/
+│   ├── train/
+│   └── val/
+├── labels/
+│   ├── train/
+│   └── val/
+└── data.yaml
+
+Research relevance::
+Dataset organization and validation are part of the experimental methodology. Maintaining consistent image-label correspondence and separating training from validation data helps make the experiment reproducible and reduces the risk of data-handling errors.
+
+SSession Note — Research Documentation
+
+Topic: Train/validation dataset splitting
+
+Completed::
+The complete dataset was verified to contain 1,530 images and 1,530 corresponding YOLO labels, with no missing image-label pairs.
+
+Next: preprocessing stage:
+The dataset will be divided into:
+
+80% training: 1,224 images
+20% validation: 306 images
+
+Important methodology:
+Images and their corresponding annotation files must always remain together during splitting. This preserves image-label correspondence.
+
+Randomization:
+Images are shuffled before splitting to reduce the possibility of an ordered dataset producing biased training and validation subsets.
+
+Reproducibility:
+A fixed random seed (42) is used. This ensures that the same dataset split can be reproduced in future experiments.
+
+Libraries / technologies::
+
+random → randomly shuffles the image list.
+shutil → copies images and label files.
+pathlib → manages dataset directories and file paths.
+
+Why we copy instead of move::
+The original dataset and Pascal VOC annotations are preserved. This allows us to return to the original data if preprocessing needs to be repeated or modified.
+
+Research significance::
+The train/validation split establishes a controlled experimental setup in which the model learns from one subset and is evaluated on separate unseen images. Recording the split ratio and random seed improves reproducibility.
+SSession Note — Research Documentation
+
+Topic: Train/validation pair validation
+
+The dataset was successfully divided into 1,224 training images (80%) and 306 validation images (20%).
+
+A separate validation script is now used to verify that every image has a corresponding YOLO annotation in both subsets.
+
+Expected relationship:
+
+Training:
+1224 images ↔ 1224 labels
+
+Validation:
+306 images ↔ 306 labels
+
+Why this validation is important::
+An object-detection model requires each training/validation image to have the correct corresponding annotation. Missing or mismatched labels can cause training errors or, more seriously, incorrect learning.
+
+Research methodology::
+The preprocessing pipeline uses multiple validation stages rather than assuming that successful script execution means the dataset is correct:
+
+XML annotation inspection
+Class verification
+Coordinate conversion
+YOLO annotation generation
+Visual bounding-box validation
+Image-label correspondence validation
+Train/validation split validation
+
+This staged validation improves data integrity, reproducibility, and reliability of the experimental pipeline.
+
+SSession Note — Research Documentation
+
+Topic: YOLO dataset configuration
+
+A data.yaml configuration file was created to describe the prepared dataset to the YOLO training framework.
+
+It specifies:
+
+Training image location
+Validation image location
+Number of object classes
+Mapping between numerical class IDs and damage categories
+
+Class configuration:
+
+0 → D00
+1 → D01
+2 → D10
+3 → D11
+4 → D20
+5 → D40
+6 → D43
+7 → D44
+8 → D50
+
+Why data.yaml is required::
+The model-training framework needs a machine-readable description of the dataset structure and class taxonomy. The YAML file provides this information without hard-coding dataset paths and class definitions into the training code.
+
+Important research observation::
+Earlier analysis found substantial class imbalance. D40 has 3,187 annotated objects, whereas some classes contain fewer than 10 objects. This imbalance may affect model performance, particularly recall for minority classes. Therefore, class distribution should be examined after the train/validation split and reported as part of the experimental analysis.
+
+Research terminology correction::
+We will use the official meanings of the RDD2022 damage codes in the final research document rather than assuming that a class code represents a generic term such as "pothole."
+
+Current pipeline:
+
+RDD2022 Dataset
+      ↓
+Pascal VOC XML
+      ↓
+YOLO conversion
+      ↓
+Validation
+      ↓
+80/20 split
+      ↓
+data.yaml
+      ↓
+Class-distribution analysis
+      ↓
+Model training
+
+
+Session Note — Research Documentation
+
+Topic: Class-distribution analysis
+
+We are analyzing the distribution of annotated road-damage objects after the train/validation split.
+
+Why this analysis is required:
+Object-detection datasets can contain different numbers of examples for each class. A highly imbalanced distribution can cause a model to learn some classes much better than others.
+
+The analysis therefore counts each annotated object according to its YOLO class ID separately in the training and validation sets.
+
+Important distinction:
+For object detection, image count and object count are different measurements. One image can contain multiple annotated objects, potentially belonging to different classes.
+
+Python concept used:
+
+collections.Counter → efficiently counts occurrences of each class ID across all YOLO annotation files.
+
+Research significance::
+Class distribution will be reported as part of dataset characterization. It will also help us interpret class-specific model performance later, particularly for rare classes.
+
+Known original distribution:
+
+D00 = 471
+D01 = 27
+D10 = 23
+D11 = 7
+D20 = 645
+D40 = 3187
+D43 = 5
+D44 = 151
+D50 = 8
+
+Total = 4524 objects
+
+The next analysis will determine how these objects are distributed between the 1,224 training images and 306 validation images.
+
+| Class     |    Train | Validation |    Total |
+| --------- | -------: | ---------: | -------: |
+| D00       |      373 |         98 |      471 |
+| D01       |       23 |          4 |       27 |
+| D10       |       20 |          3 |       23 |
+| D11       |        6 |          1 |        7 |
+| D20       |      499 |        146 |      645 |
+| D40       |     2567 |        620 |     3187 |
+| D43       |        4 |          1 |        5 |
+| D44       |      121 |         30 |      151 |
+| D50       |        7 |          1 |        8 |
+| **Total** | **3620** |    **904** | **4524** |
+
+
+SSession Note — Research Documentation
+
+Topic: Class distribution interpretation and final YOLO label validation
+
+The train/validation distribution preserved all 4,524 annotated objects from the original dataset:
+
+Training objects:   3620
+Validation objects:  904
+Total:              4524
+
+The distribution is strongly imbalanced. D40 is the dominant class with 3,187 objects, while D43, D11, and D50 contain only 5, 7, and 8 objects, respectively.
+
+This imbalance is an important dataset characteristic and should be considered when interpreting class-specific evaluation metrics.
+
+Important evaluation consideration::
+Some minority classes have only one validation object. Therefore, metrics such as precision and recall for these classes may be statistically unstable and should not be interpreted in isolation.
+
+New validation stage:
+A YOLO-label validation script checks every annotation for:
+
+Exactly five values
+Valid numerical values
+Valid class IDs
+Normalized center coordinates within [0, 1]
+Positive normalized width and height
+No malformed annotation lines
+
+Research significance::
+This creates a final automated quality-control stage before model training. The preprocessing pipeline can therefore be described as a sequence of conversion, structural, visual, statistical, and numerical validation procedures.
+
+Current status::
+
+Dataset acquisition             ✓
+XML inspection                   ✓
+Class mapping                    ✓
+VOC → YOLO conversion            ✓
+Visual annotation validation     ✓
+Image-label validation           ✓
+Train/validation split           ✓
+Class distribution analysis      ✓
+Final YOLO label validation      ← NOW
+Model preparation                → NEXT
+
+SSession Note — Research Documentation
+
+Topic: Completion of data preprocessing and introduction to YOLO
+
+The complete dataset preparation pipeline has passed all validation stages.
+
+Final validated dataset
+Training:
+1224 images
+3620 objects
+1224 labels
+0 invalid labels
+
+Validation:
+306 images
+904 objects
+306 labels
+0 invalid labels
+
+The original 4,524 annotated objects were preserved.
+
+Key concepts introduced
+
+YOLO (You Only Look Once):
+A real-time object-detection architecture designed to simultaneously determine the location and class of objects in an image.
+
+Ground truth:
+The manually provided annotation representing the expected object class and bounding-box location.
+
+Prediction:
+The bounding box, class, and confidence produced by the trained model.
+
+Loss:
+A numerical measure of the difference between the model's predictions and the ground-truth annotations. Training uses this information to update the model's parameters.
+
+Epoch:
+One complete pass through the training dataset.
+
+Model-selection principle::
+The YOLO model should not be selected arbitrarily. Model size and architecture must be considered alongside accuracy, inference speed, computational resources, and the project's real-time requirements.
+
+Research significance:
+
+The preprocessing stage is now reproducible and validated before model training begins. This separates data preparation errors from model-training errors, which is important for reliable experimentation.
+
+Current project status:
+Dataset acquisition          ✓
+Annotation inspection         ✓
+Class mapping                 ✓
+VOC → YOLO conversion         ✓
+Visual validation             ✓
+Image-label validation        ✓
+Train/validation split        ✓
+Class distribution            ✓
+YOLO label validation         ✓
+YOLO model selection          → NEXT
+Model training                → AFTER
+
+SSession Note — Research Documentation
+
+Topic: Hardware assessment and computational environment
+
+The system was checked for GPU availability.
+
+Detected hardware:
+
+Intel(R) Iris(R) Xe Graphics
+
+No NVIDIA GPU was detected, and nvidia-smi was unavailable.
+
+Training decision:
+
+Because CUDA-based NVIDIA GPU acceleration is not available, the initial YOLO experiments will use CPU-based PyTorch training.
+
+YOLO
+ ↓
+PyTorch
+ ↓
+CPU
+
+Why this decision:
+It avoids unnecessary CUDA/NVIDIA configuration that is not applicable to the available hardware. However, CPU training is expected to be slower, so model size and training configuration will need to be selected carefully.
+
+New technology:
+
+PyTorch:
+A deep-learning framework that provides tensor operations, neural-network layers, automatic differentiation, and model-training functionality. YOLO implementations commonly use PyTorch as their underlying framework.
+
+Torchvision:
+A PyTorch companion library containing computer-vision utilities and components.
+
+Environment principle learned:
+Packages should be installed inside the project's active virtual environment. Using python -m pip helps ensure the package is associated with the currently active Python interpreter.
+
+SSession Note — Research Documentation
+
+Important project decision::
+Because the local computer has Intel Iris Xe Graphics and no NVIDIA CUDA GPU, YOLO training will be performed using Google Colab's GPU environment instead of CPU training on the local machine.
+
+Development architecture:
+
+Local VS Code
+     │
+     ├── Dataset preparation
+     ├── Annotation processing
+     ├── Validation
+     └── Final application/UI
+              ↑
+              │
+        trained model
+              │
+              │
+Google Colab
+     ├── YOLO environment
+     ├── GPU training
+     ├── Model evaluation
+     └── best.pt
+
+Why:
+GPU acceleration can substantially reduce deep-learning training time. Separating training from application development also allows us to use cloud GPU resources while keeping the final real-time application on the local machine.
+
+Important concept::
+The trained model (best.pt) is a reusable artifact. We train it once, download it, and then load it in the VS Code application for inference.
+
+New terms::
+
+Training: learning model parameters from labeled data.
+Inference: using the trained model to make predictions on new images/video.
+best.pt: the trained YOLO model weights selected as the best checkpoint according to the training/validation criteria.
+
+Session Note
+
+Today: We decided to use Google Colab for YOLO training because the local machine has Intel Iris Xe graphics and no NVIDIA CUDA GPU.
+
+Colab role: GPU-based model training.
+
+VS Code role: Dataset preparation and later the real-time application/UI.
+
+Session Note
+
+Colab environment verified:
+
+PyTorch: 2.11.0+cu128
+GPU: NVIDIA Tesla T4
+CUDA available: True
+
+New tool:: Ultralytics
+
+Used to provide the YOLO implementation and training/inference utilities.
+
+Why: It allows us to train a modern YOLO object-detection model without implementing the complete architecture and training pipeline from scratch.
+Session Note
+
+Step completed: Ultralytics YOLO installed successfully in Google Colab.
+
+Training environment:
+
+Google Colab
+    ↓
+PyTorch 2.11.0 + CUDA 12.8
+    ↓
+Tesla T4 GPU
+    ↓
+Ultralytics YOLO
+
+Next:: Transfer the prepared YOLO dataset to Google Drive and mount Google Drive in Colab.
+
+Important: We preserve our validated YOLO dataset structure and verify it again after transfer. This ensures that moving the dataset to the cloud does not introduce file or annotation errors.
+
+Session Note
+
+Model training stage started.
+
+We selected YOLO11n as the first baseline because the project requires real-time road-damage detection and we want to establish a fast, computationally efficient baseline before testing larger models.
+
+Initial training configuration:
+
+Model: YOLO11n
+GPU: Tesla T4
+Epochs: 50
+Image size: 640 × 640
+Batch size: 16
+
+These settings will be recorded as Experiment 1 in the research documentation.
+
+Session Note — Training Baseline
+
+What we did:
+
+Trained YOLO11n on our converted road-damage dataset.
+Used 1,224 training images and 306 validation images.
+Trained for 50 epochs.
+Used a Tesla T4 GPU through Google Colab.
+Used pretrained yolo11n.pt.
+The best trained model was saved as best.pt.
+
+What we learned:
+
+Epoch: one complete pass through the training dataset.
+Precision: how many predicted detections were correct.
+Recall: how many actual objects the model managed to find.
+mAP50: detection accuracy using IoU threshold 0.50.
+mAP50-95: stricter metric averaged across multiple IoU thresholds.
+Loss: measures how far the model's predictions are from the ground truth. During training, our losses generally decreased, showing that the model was learning.
+
+Baseline result
+
+Precision = 0.649
+Recall    = 0.172
+mAP50     = 0.210
+mAP50-95  = 0.0919
+
+Research significance:
+
+This is our baseline experiment. We now have a measurable starting point that future improvements can be compared against.
+
+Session note for your project TXT
+
+Prediction: We used the trained YOLO model to run inference on 306 validation images. YOLO resized the images to 640×640 and predicted road-damage classes such as D00, D20, D40, and D44. The output shows how many objects were detected in each image and the inference time. Some images had “no detections,” meaning that no prediction passed the confidence threshold. The prediction results were saved in /content/runs/detect/predict. Prediction confirms that the trained model can run on new images, but accuracy must be evaluated using metrics such as precision, recall, mAP, and visual inspection.
+
+Session Note — add this to your TXT
+
+Model Evaluation: We used model.val() to evaluate the trained YOLO model on 306 validation images containing 904 annotated damage instances. Overall Precision was 65.5%, Recall was 17.4%, mAP50 was 20.8%, and mAP50-95 was 9.1%. Precision being much higher than recall means the model's predictions are often reasonably correct, but it misses many actual damages. D40 was the strongest major class, followed by D20. Several classes had very few validation examples, causing unreliable/poor results. The dataset is highly imbalanced, with D40 having 620 instances while some classes have only 1–4 instances. We will inspect the confusion matrix and other evaluation plots before deciding how to improve the model.
+
+Now we balanced the dataset using the original pre-training dataset.
+
+SESSION NOTE — Dataset Imbalance Analysis & Balancing Plan
+
+Today, we continued the AI-Based Real-Time Road Damage Detection project.
+
+We found that the dataset ZIP in Colab was corrupted, but the extracted YOLO dataset was already available at:
+ /content/dataset/dataset/
+
+We confirmed that the dataset contains 9 road-damage classes:
+
+0 = D00
+1 = D01
+2 = D10
+3 = D11
+4 = D20
+5 = D40
+6 = D43
+7 = D44
+8 = D50
+
+We analyzed the training dataset and found severe class imbalance.
+
+Training images containing each class:
+D00 = 363
+D01 = 19
+D10 = 22
+D11 = 7
+D20 = 549
+D40 = 1530
+D43 = 5
+D44 = 124
+D50 = 8
+
+Annotation/object counts:
+D00 = 471
+D01 = 27
+D10 = 23
+D11 = 7
+D20 = 645
+D40 = 3187
+D43 = 5
+D44 = 151
+D50 = 8
+
+D40 is the dominant class, while D43, D11, and D50 are extremely rare.
+
+We also analyzed class combinations and discovered that the rare classes usually occur in images that also contain D40. Therefore, simply duplicating minority-class images would also increase the already-dominant D40 class.
+
+Decision:
+We will NOT force every class to have the same number of images.
+
+Instead, we will create a separate balanced training dataset using controlled/targeted augmentation of minority-class images.
+
+Important:
+- Original dataset will remain untouched.
+- Validation data will remain unchanged.
+- Test data will remain unchanged.
+- Only the training data will be balanced.
+- Later we will retrain YOLO and compare the balanced model with the previous model using per-class metrics such as precision, recall and mAP.
+
+Concepts learned:
+- Class imbalance: some classes have much more training data than others.
+- Annotation count vs image count: they are not the same thing in object detection.
+- Class combinations: one image can contain multiple object classes.
+- Oversampling: showing minority examples more often during training.
+- Augmentation: creating varied versions of existing training images.
+- Validation/test data should not be artificially balanced because they should represent the real evaluation distribution.
+
+SESSION NOTE — Creating the Balanced Training Set
+
+We created a separate balanced training dataset.
+
+Original training set:
+1,224 images and 1,224 labels.
+
+The original dataset was NOT modified.
+
+We identified minority classes:
+D01, D10, D11, D43, D50, and D44.
+
+Controlled target image occurrences were selected:
+D01 → 50
+D10 → 50
+D11 → 40
+D43 → 40
+D50 → 40
+D44 → 150
+
+We created controlled copies of minority-class images and their matching YOLO label files.
+
+The new balanced training dataset contains:
+1,444 images.
+
+Why we used controlled oversampling::
+The dataset has severe class imbalance, especially because D40 is dominant while D43, D11, and D50 are extremely rare. Making every class equal to the largest class would cause excessive repetition and increase the risk of overfitting.
+
+Why we kept the original dataset::
+Keeping the original dataset untouched allows us to compare the original YOLO model with the retrained balanced model fairly.
+
+Important technical point::
+YOLO labels contain bounding-box coordinates. If an image is geometrically transformed manually, its bounding boxes must also be transformed. Therefore, we did not manually alter image geometry. The copied image/label pairs remain valid, and YOLO can apply its own training-time augmentation.
+
+Next::
+Verify the actual object and image distribution in the balanced dataset before retraining.
+
+SESSION NOTE — Experiment 2: Balanced Training Preparation
+
+We completed the preparation of the second YOLO training experiment.
+
+The baseline model was previously trained using:
+
+* YOLO11n
+* 1,224 training images
+* 306 validation images
+* 50 epochs
+* 640 × 640 image size
+* batch size 16
+* Tesla T4 GPU
+
+For Experiment 2, we created a separate training dataset using controlled oversampling of minority-class images.
+
+Original training dataset:
+1,224 images
+
+New oversampled training dataset:
+1,444 images
+
+The original dataset remains untouched.
+
+The validation dataset also remains unchanged:
+306 images.
+
+This is important because the same validation set must be used when comparing the baseline and retrained models.
+
+The new data.yaml therefore uses:
+
+train → /content/dataset/balanced_train/images/train
+
+val → /content/dataset/dataset/images/val
+
+The balancing strategy did not force all classes to have equal numbers of examples. Instead, additional occurrences were created for the minority classes D01, D10, D11, D43, D50, and D44.
+
+After balancing, the object distribution was:
+
+D00 = 418
+D01 = 115
+D10 = 53
+D11 = 63
+D20 = 565
+D40 = 2895
+D43 = 40
+D44 = 198
+D50 = 45
+
+This demonstrates that the dataset is still imbalanced, but the exposure of extremely rare classes has been increased.
+
+Important distinction:
+The balancing process used controlled oversampling. YOLO's own training pipeline will separately apply training-time augmentation.
+
+Research objective::
+Determine whether increasing the exposure of minority-class examples improves detection performance, particularly recall and mAP for rare damage classes, without significantly reducing performance on the dominant classes.
+
+Experiment 2 configuration:
+Model: YOLO11n
+Epochs: 50
+Image size: 640 × 640
+Batch size: 16
+GPU: Tesla T4
+Training dataset: 1,444 oversampled images
+Validation dataset: same original 306 images
+Random seed: 42
+
+Baseline results for comparison:
+Precision = 0.655
+Recall = 0.174
+mAP50 = 0.208
+mAP50-95 = 0.091
+
+Next: step:
+Train Experiment 2 and evaluate it using the same validation set. Then compare overall and per-class metrics with the baseline model.
+
+
+Session Notes — Road Damage Detection
+1. Dataset preparation
+
+We created a balanced training dataset because the original dataset had an imbalance between road-damage classes.
+
+Training images: 1,444
+Training labels: 1,444
+Validation images: 306
+Validation labels: 306
+Number of classes: 9
+
+Classes:
+
+D00
+D01
+D10
+D11
+D20
+D40
+D43
+D44
+D50
+
+The training dataset was balanced, but the validation dataset was kept separate and unchanged so that evaluation would represent performance on the original validation data.
+
+2. Model used
+
+We used:
+
+YOLO11n (YOLO11 Nano)
+
+Why YOLO11n?
+
+Lightweight
+Fast inference
+Suitable for real-time detection
+Can run on relatively limited hardware
+Good choice for an application where we eventually want live camera/video detection
+
+The model was initialized with pretrained weights:
+
+model = YOLO("yolo11n.pt")
+
+The pretrained model originally had 80 classes, but our dataset contains 9 classes, so Ultralytics automatically changed the detection head:
+
+Overriding model.yaml nc=80 with nc=9
+3. Training configuration
+
+We trained for:
+
+Epochs = 50
+Image size = 640 × 640
+Batch size = 16
+GPU = Tesla T4
+Optimizer = AdamW
+Pretrained = True
+Seed = 42
+
+The model successfully completed all 50 epochs.
+
+The best trained model was saved as:
+
+/content/runs/road_damage_balanced/weights/best.pt
+
+The final model was also saved as:
+
+/content/runs/road_damage_balanced/weights/last.pt
+4. Final performance
+
+The best model achieved approximately:
+
+Metric	Result
+Precision	0.508
+Recall	0.407
+mAP@50	0.369
+mAP@50-95	0.146
+
+The model performs reasonably on some classes, especially D40, but performance is weak on classes with extremely few validation examples.
+
+For example:
+
+D40: mAP50 ≈ 0.499
+D20: mAP50 ≈ 0.419
+D01: mAP50 ≈ 0.895, but only 4 instances
+D10: essentially unsuccessful
+D11/D43/D50 have extremely small validation counts
+
+Therefore, we should not claim that the model is highly accurate overall.
+
+5. What the confusion matrix tells us:
+
+The confusion matrix showed that many actual damages were classified as background.
+
+For example:
+
+background ← D40 = 285
+background ← D20 = 58
+background ← D00 = 71
+background ← D44 = 22
+
+This means the model is frequently missing actual road damage.
+
+There is also some confusion between similar classes, such as:
+
+D20 → D40
+D40 → D20
+D00 → D20
+D00 → D40
+
+This indicates that the dataset/class distribution and visual similarity between damage categories are likely major factors.
+
+6. Important conclusion about the dataset:
+
+Our results strongly suggest that the dataset is currently the main limitation rather than simply needing more epochs.
+
+Some validation classes contain only:
+
+D11 = 1 instance
+D43 = 1 instance
+D50 = 1 instance
+D10 = 3 instances
+D01 = 4 instances
+
+It is impossible to make a reliable judgment about a model's performance on a class using only 1–4 validation examples.
+
+Therefore, we will not keep changing the model just to increase the score.
+
+Instead, we will document this limitation honestly in the research document.
+
+Session Notes — Session: VS Code UI & Detection Debugging
+What we did:
+Moved the trained best.pt YOLO model from Google Colab to the VS Code project.
+
+Placed it in:
+
+models/best.pt
+
+Created a Streamlit application in:
+
+app/app.py
+Built three UI sections:
+Upload Image
+Upload Video
+Camera Capture
+Connected the Streamlit UI with our trained YOLO11n model.
+Tested an image and found that the model did not detect the pothole.
+Technologies used
+Technology	Purpose
+Streamlit	Creates the web-based UI using Python
+YOLO11n / Ultralytics	Performs road-damage object detection
+OpenCV	Reads and processes video frames
+Pillow (PIL)	Opens uploaded images
+NumPy	Converts images into arrays YOLO can process
+pathlib	Creates reliable project file paths
+tempfile	Temporarily stores uploaded videos
+Important code concept
+
+Our model path is:
+
+ROOT = Path(__file__).resolve().parent.parent
+MODEL_PATH = ROOT / "models" / "best.pt"
+
+This allows app.py to correctly find the trained model even though the files are in different folders.
+
+Debugging decision
+
+The UI currently uses:
+
+conf=0.25
+
+We are temporarily changing it to:
+
+conf=0.05
+
+to determine whether the model is producing low-confidence detections that are being filtered out.
+
+This is only a diagnostic test, not necessarily our final confidence threshold.
+
+Important finding:
+
+The camera feature currently uses:
+
+st.camera_input()
+
+This captures a camera image but is not true continuous real-time detection.
+
+Session note — add this to your TXT
+
+Session: Model Integration & Streamlit UI
+
+Today, the trained YOLO11n road-damage model was integrated into the VS Code project. The trained best.pt weights were placed inside the models/ folder. A Streamlit application was created to provide an interface for uploading images, uploading videos, and capturing camera images.
+
+The application loads the YOLO model using YOLO(str(MODEL_PATH)). @st.cache_resource is used so that the model is loaded once instead of being reloaded every time Streamlit reruns the application.
+
+OpenCV (cv2) is used for video processing frame-by-frame. NumPy is used to convert images into arrays that can be passed to YOLO. PIL is used to open uploaded images.
+
+Initially, image detection used a confidence threshold of 0.25, but some road-damage images were not detected. The threshold was lowered to 0.05, allowing lower-confidence predictions to be displayed. This improved detection for our current model, although lower confidence can also produce more false positives.
+
+The application currently successfully detects road damage in uploaded images. The next stage is to improve the code architecture and UI rather than simply changing model parameters. We will reduce repeated code, add configurable confidence settings, improve detection statistics, and develop a proper real-time detection interface.
+
+Important model result:
+Precision = 0.508
+Recall = 0.407
+mAP50 = 0.369
+mAP50-95 = 0.146
+
+Main technologies used: Python, YOLO11n, Ultralytics, Streamlit, OpenCV, NumPy, and PIL.
+
+
+Why we're doing this
+
+The important distinction is:
+
+Your model
+   ↓
+reads video frames
+   ↓
+YOLO detects damage
+   ↓
+annotated frames
+   ↓
+AVI
+   ↓
+FFmpeg
+   ↓
+H.264 MP4
+   ↓
+Gradio video player
+
+Your previous result of 553 frames / 204 detections already proved that the YOLO part is working. The failure was occurring after detection, when producing something the browser can play.
+
+Once this works, don't change the video code again. We'll have:
+
+Image detection ✓
+Video detection ✓
+Playable annotated video ✓
+
+
+Session Notes — Final UI & Deployment
+
+Project: AI-Based Real-Time Road Damage Detection
+
+What we completed today:
+
+Trained a YOLO11 road-damage detection model in Google Colab.
+Moved the trained best.pt model into the local VS Code project.
+Built the application UI using Gradio.
+Added three detection modes:
+Image Detection — upload an image and detect road damage with bounding boxes and confidence scores.
+Video Detection — upload a complete video, process it frame-by-frame, and generate a playable annotated video.
+Live Camera Detection — use the webcam for real-time road-damage detection.
+Fixed the video-processing problem where detection worked but the resulting video could not play.
+Used OpenCV for reading and processing video frames.
+Used FFmpeg through imageio-ffmpeg to convert the processed video into a browser-compatible H.264 MP4.
+Saved the final processed video in the project's results directory instead of relying on a temporary directory.
+Added a confidence threshold control to allow adjustment of detection sensitivity.
+Improved the UI to make it simple and user-friendly.
+Removed generic AI-style wording and unnecessary emojis from the interface.
+Current project structure
+Road_Damage_Detection/
+│
+├── .venv/
+│
+├── app/
+│   ├── app.py
+│   ├── detector.py
+│   ├── video_processor.py
+│   └── gradio_app.py
+│
+├── dataset/
+│   ├── data.yaml
+│   ├── images/
+│   │   ├── train/
+│   │   └── val/
+│   └── labels/
+│       ├── train/
+│       └── val/
+│
+├── models/
+│   └── best.pt
+│
+├── notebooks/
+│
+├── results/
+│   └── annotated_video.mp4
+│
+├── src/
+│   ├── analyze_distribution.py
+│   ├── check_classes.py
+│   ├── check_dataset.py
+│   ├── check_environment.py
+│   ├── convert_voc_to_yolo.py
+│   ├── inspect_dataset.py
+│   ├── read_annotation.py
+│   ├── split_dataset.py
+│   ├── test_environment.py
+│   ├── validate_split.py
+│   ├── validate_yolo_labels.py
+│   ├── visualize_annotation.py
+│   └── visualize_yolo.py
+│
+├── explanation.txt
+└── requirements.txt
+Technologies learned/used:
+Technology	Why we used it
+Python	Main programming language
+YOLO11	Object detection and road-damage localization
+Ultralytics	Python framework for running/training YOLO
+OpenCV	Reading videos and processing individual frames
+NumPy	Handling image/frame arrays
+Pillow	Loading and converting images
+Gradio	Creating the user interface
+FFmpeg	Converting processed video into a browser-compatible format
+imageio-ffmpeg	Providing FFmpeg through Python
+Pathlib	Managing project/file paths
+Virtual environment	Keeping project dependencies isolated
+Most important concept learned
+
+The project has two separate parts:
+
+MODEL
+  ↓
+YOLO11
+  ↓
+Detect road damage
+
+and
+
+APPLICATION
+  ↓
+Gradio
+  ↓
+Image / Video / Live Camera
+  ↓
+YOLO11
+  ↓
+Detection result
+
+The model does not create the UI. Gradio is the interface that sends images/video frames to the model and displays its results.
+
+Final status
+Dataset preparation          ✓
+Dataset analysis             ✓
+VOC → YOLO conversion        ✓
+YOLO annotations             ✓
+Dataset split                ✓
+Model training               ✓
+Model evaluation             ✓
+Confusion matrix             ✓
+Trained best.pt              ✓
+Local VS Code setup          ✓
+Image detection              ✓
+Video detection              ✓
+Playable annotated video     ✓
+Live camera detection        ✓
+Gradio UI                    ✓
+
+PROJECT PROTOTYPE             ✓ COMPLETED
+
+One important research note: the application being complete does not mean the model is perfect. our confusion matrix showed significant class imbalance and missed detections, so that limitation should be honestly discussed in your research document rather than hidden. The application is the completed working prototype, while model accuracy/limitations become part of the research analysis.

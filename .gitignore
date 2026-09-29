@@ -1,0 +1,32 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset files
+dataset/images/
+dataset/labels/
+dataset/train/images/
+dataset/train/labels/
+dataset/train/annotations/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+
+# Training outputs
+runs/
+wandb/
+
+# Large generated files
+*.mp4
+
+# Environment / secrets
+.env

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Road Damage Detection</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Road Damage Detection</h1>
+
+      <div class="panel">
+        <form id="upload-form">
+          <label for="image-input">Upload road image</label>
+          <input id="image-input" type="file" accept="image/*" required />
+
+          <label for="confidence">Detection Confidence</label>
+          <input
+            id="confidence"
+            type="range"
+            min="0.05"
+            max="0.90"
+            step="0.05"
+            value="0.05"
+          />
+          <div class="confidence-value">0.05</div>
+
+          <button type="submit">Detect Damage</button>
+        </form>
+      </div>
+
+      <div class="status" id="status">Waiting for image...</div>
+
+      <div class="results-grid">
+        <div class="card">
+          <h2>Original Image</h2>
+          <img id="original-image" alt="Original upload preview" />
+        </div>
+
+        <div class="card">
+          <h2>Detection Result</h2>
+          <img id="result-image" alt="Annotated detection result" />
+        </div>
+      </div>
+
+      <div class="card detections-card">
+        <h2>Detection Details</h2>
+        <ul id="detections"></ul>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
